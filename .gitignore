@@ -1,6 +1,9 @@
 node_modules/
 npm-debug.log*
 
+# User-specific deployment config (host paths, custom title, port)
+.env
+
 # User's music library (bind-mounted at runtime, not part of the repo)
 /music/*
 !/music/.gitkeep

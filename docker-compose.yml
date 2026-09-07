@@ -2,10 +2,10 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      - "${HOST_PORT:-3000}:3000"
     volumes:
-      - ./music:/music:ro
+      - ${MUSIC_PATH:-./music}:/music:ro
     environment:
       - MUSIC_DIR=/music
-      - SITE_TITLE=justfplay
+      - SITE_TITLE=${SITE_TITLE:-justfplay}
     restart: unless-stopped
