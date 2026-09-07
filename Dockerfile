@@ -10,6 +10,7 @@ COPY public ./public
 
 ENV PORT=3000
 ENV MUSIC_DIR=/music
+ENV SITE_TITLE=justfplay
 
 EXPOSE 3000
 

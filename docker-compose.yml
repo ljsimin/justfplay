@@ -7,4 +7,5 @@ services:
       - ./music:/music:ro
     environment:
       - MUSIC_DIR=/music
+      - SITE_TITLE=justfplay
     restart: unless-stopped
