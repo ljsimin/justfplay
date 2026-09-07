@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>justfplay</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>justfplay</h1>
+    <input id="search" type="search" placeholder="Search title, artist, album..." autocomplete="off" />
+  </header>
+
+  <nav id="breadcrumbs" class="breadcrumbs"></nav>
+
+  <main id="listing" class="listing"></main>
+
+  <footer class="player-bar">
+    <div class="player-track">
+      <img id="player-art" class="player-art" alt="" />
+      <div class="player-meta">
+        <div id="player-title" class="player-title">No track selected</div>
+        <div id="player-subtitle" class="player-subtitle"></div>
+      </div>
+    </div>
+
+    <div class="player-controls">
+      <button id="btn-prev" title="Previous">⏮</button>
+      <button id="btn-play" title="Play/Pause">▶</button>
+      <button id="btn-next" title="Next">⏭</button>
+    </div>
+
+    <div class="player-seek">
+      <span id="time-current">0:00</span>
+      <input id="seek" type="range" min="0" max="100" value="0" step="0.1" />
+      <span id="time-duration">0:00</span>
+    </div>
+
+    <div class="player-volume">
+      <span>🔊</span>
+      <input id="volume" type="range" min="0" max="1" value="1" step="0.01" />
+    </div>
+  </footer>
+
+  <audio id="audio" preload="metadata"></audio>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "justfplay",
+  "version": "1.0.0",
+  "description": "Simple browser MP3 player streamed from a baked-in server directory",
+  "private": true,
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "music-metadata": "^7.14.0"
+  }
+}
