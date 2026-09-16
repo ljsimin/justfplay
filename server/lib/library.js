@@ -1,12 +1,14 @@
 const fs = require('fs/promises');
 const path = require('path');
 const { readTrackTags } = require('./tags');
+const { getImageSize } = require('./imageSize');
 
 const AUDIO_EXT = /\.mp3$/i;
 const VIDEO_EXT = /\.(mp4|webm)$/i;
 // .m4a (audio-only mp4 container) is intentionally excluded from scope for now —
 // it would need its own metadata-handling branch, not a casual extension add.
 const MEDIA_EXT = /\.(mp3|mp4|webm)$/i;
+const IMAGE_EXT = /\.(jpe?g|png)$/i;
 const RESCAN_INTERVAL_MS = 5 * 60 * 1000;
 
 function trackSortCompare(a, b) {
@@ -18,6 +20,44 @@ function trackSortCompare(a, b) {
   return a.name.localeCompare(b.name);
 }
 
+// Picks which image in a folder represents its cover, for tracks whose own
+// tags have no embedded art. A single image is an easy call; with several,
+// prefer one clearly named as a cover, then one matching the folder's own
+// name, then a square image — falling back to the alphabetically-first
+// image if nothing stands out.
+async function pickFolderCover(absDir, imageNames, folderName) {
+  if (imageNames.length === 0) return null;
+  if (imageNames.length === 1) return imageNames[0];
+
+  const normalizedFolder = folderName.trim().toLowerCase();
+  const sorted = [...imageNames].sort((a, b) => a.localeCompare(b));
+
+  let best = sorted[0];
+  let bestScore = 0;
+  for (const name of sorted) {
+    const stem = name.replace(IMAGE_EXT, '').trim().toLowerCase();
+    let score = 0;
+    if (stem === 'cover' || stem === 'folder') {
+      score = 3;
+    } else if (stem.includes('cover') || stem.includes('folder') || stem === normalizedFolder) {
+      score = 2;
+    } else {
+      try {
+        const buf = await fs.readFile(path.join(absDir, name));
+        const dims = getImageSize(buf);
+        if (dims && dims.width === dims.height) score = 1;
+      } catch (err) {
+        score = 0;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = name;
+    }
+  }
+  return best;
+}
+
 class Library {
   // rootDirs: array of absolute directory paths, scanned and merged into one
   // unified tree as if they were a single root directory — the UI never
@@ -26,6 +66,7 @@ class Library {
     this.rootDirs = rootDirs;
     this.tree = null;
     this.pathIndex = new Map(); // logical relative path -> absolute file path
+    this.folderCoverIndex = new Map(); // logical folder path -> absolute cover image path
     this.scanning = null;
   }
 
@@ -43,9 +84,10 @@ class Library {
       return this.scanning;
     }
     this.scanning = this._scanAll()
-      .then(({ tree, pathIndex }) => {
+      .then(({ tree, pathIndex, folderCoverIndex }) => {
         this.tree = tree;
         this.pathIndex = pathIndex;
+        this.folderCoverIndex = folderCoverIndex;
         return tree;
       })
       .finally(() => {
@@ -65,17 +107,27 @@ class Library {
     return this.pathIndex.get(relPath) || null;
   }
 
-  async _scanAll() {
-    const pathIndex = new Map();
-    const rootTrees = [];
-    for (const rootDir of this.rootDirs) {
-      rootTrees.push(await this._scanDir(rootDir, '', '(root)', pathIndex));
-    }
-    const tree = this._mergeFolderNodes(rootTrees, '(root)', '');
-    return { tree, pathIndex };
+  // Given a track's logical path, resolves the absolute path of its
+  // containing folder's cover image (if one was found), for tracks whose
+  // own tags have no embedded art.
+  resolveFolderCover(trackRelPath) {
+    const idx = trackRelPath.lastIndexOf('/');
+    const folderRelPath = idx === -1 ? '' : trackRelPath.slice(0, idx);
+    return this.folderCoverIndex.get(folderRelPath) || null;
   }
 
-  async _scanDir(absDir, relDir, name, pathIndex) {
+  async _scanAll() {
+    const pathIndex = new Map();
+    const folderCoverIndex = new Map();
+    const rootTrees = [];
+    for (const rootDir of this.rootDirs) {
+      rootTrees.push(await this._scanDir(rootDir, '', '(root)', pathIndex, folderCoverIndex));
+    }
+    const tree = this._mergeFolderNodes(rootTrees, '(root)', '');
+    return { tree, pathIndex, folderCoverIndex };
+  }
+
+  async _scanDir(absDir, relDir, name, pathIndex, folderCoverIndex) {
     let entries;
     try {
       entries = await fs.readdir(absDir, { withFileTypes: true });
@@ -85,6 +137,7 @@ class Library {
 
     const folders = [];
     const tracks = [];
+    const imageNames = [];
 
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
@@ -92,7 +145,7 @@ class Library {
       const entryRel = relDir ? `${relDir}/${entry.name}` : entry.name;
 
       if (entry.isDirectory()) {
-        const sub = await this._scanDir(entryAbs, entryRel, entry.name, pathIndex);
+        const sub = await this._scanDir(entryAbs, entryRel, entry.name, pathIndex, folderCoverIndex);
         if (sub.folders.length || sub.tracks.length) {
           folders.push(sub);
         }
@@ -113,6 +166,20 @@ class Library {
           ...tags,
           kind,
         });
+      } else if (entry.isFile() && IMAGE_EXT.test(entry.name)) {
+        imageNames.push(entry.name);
+      }
+    }
+
+    const coverName = await pickFolderCover(absDir, imageNames, name);
+    if (coverName && !folderCoverIndex.has(relDir)) {
+      folderCoverIndex.set(relDir, path.join(absDir, coverName));
+    }
+    if (folderCoverIndex.has(relDir)) {
+      for (const track of tracks) {
+        if (track.kind === 'audio' && !track.hasArt) {
+          track.hasArt = true;
+        }
       }
     }
 

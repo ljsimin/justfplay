@@ -34,6 +34,7 @@ A simple web-based MP3/MP4/WebM player for your own music and video collection. 
 - The player bar at the bottom has play/pause, seek, previous/next, and volume — it controls video tracks too, which play in a video area above the listing.
 - Reloading the page picks up where you left off (paused, ready to resume).
 - The ⟳ button next to the search box rescans the library on demand, without waiting for the periodic background rescan.
+- If a track has no embedded cover art, justfplay looks for `.jpg`/`.png` files in the same folder: a single image is used as-is; with several, it prefers one named `cover`/`folder` (or a variation of those), then one matching the folder's own name, then a square image — otherwise it just picks one.
 
 Works on both desktop and mobile browsers.
 

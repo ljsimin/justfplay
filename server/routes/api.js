@@ -1,10 +1,21 @@
 const express = require('express');
 const path = require('path');
 const fsSync = require('fs');
+const fs = require('fs/promises');
 const { readCoverArt } = require('../lib/tags');
 
 const ART_CACHE_MAX = 200;
 const STREAM_CONTENT_TYPES = { '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.webm': 'video/webm' };
+const IMAGE_CONTENT_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' };
+
+async function readFolderCoverFallback(library, relPath) {
+  const coverAbsPath = library.resolveFolderCover(relPath);
+  if (!coverAbsPath) return null;
+  const format = IMAGE_CONTENT_TYPES[path.extname(coverAbsPath).toLowerCase()];
+  if (!format) return null;
+  const data = await fs.readFile(coverAbsPath);
+  return { format, data };
+}
 
 function createApiRouter(library) {
   const router = express.Router();
@@ -66,7 +77,10 @@ function createApiRouter(library) {
     }
 
     try {
-      const art = await readCoverArt(absPath);
+      let art = await readCoverArt(absPath);
+      if (!art) {
+        art = await readFolderCoverFallback(library, relPath);
+      }
       if (artCache.size >= ART_CACHE_MAX) {
         const firstKey = artCache.keys().next().value;
         artCache.delete(firstKey);
