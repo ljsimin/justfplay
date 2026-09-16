@@ -2,7 +2,11 @@ const fs = require('fs/promises');
 const path = require('path');
 const { readTrackTags } = require('./tags');
 
-const MP3_EXT = /\.mp3$/i;
+const AUDIO_EXT = /\.mp3$/i;
+const VIDEO_EXT = /\.mp4$/i;
+// .m4a (audio-only mp4 container) is intentionally excluded from scope for now —
+// it would need its own metadata-handling branch, not a casual extension add.
+const MEDIA_EXT = /\.(mp3|mp4)$/i;
 const RESCAN_INTERVAL_MS = 5 * 60 * 1000;
 
 class Library {
@@ -61,13 +65,15 @@ class Library {
         if (sub.folders.length || sub.tracks.length) {
           folders.push(sub);
         }
-      } else if (entry.isFile() && MP3_EXT.test(entry.name)) {
-        const tags = await readTrackTags(entryAbs, entry.name);
+      } else if (entry.isFile() && MEDIA_EXT.test(entry.name)) {
+        const kind = AUDIO_EXT.test(entry.name) ? 'audio' : 'video';
+        const tags = await readTrackTags(entryAbs, entry.name, kind);
         tracks.push({
           type: 'track',
           name: entry.name,
           path: entryRel,
           ...tags,
+          kind,
         });
       }
     }

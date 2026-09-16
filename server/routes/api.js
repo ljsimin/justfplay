@@ -4,6 +4,7 @@ const fsSync = require('fs');
 const { readCoverArt } = require('../lib/tags');
 
 const ART_CACHE_MAX = 200;
+const STREAM_CONTENT_TYPES = { '.mp3': 'audio/mpeg', '.mp4': 'video/mp4' };
 
 function resolveSafePath(rootDir, relPath) {
   const normalizedRoot = path.resolve(rootDir);
@@ -29,7 +30,8 @@ function createApiRouter(library, musicDir) {
   router.get('/stream/*', (req, res) => {
     const relPath = req.params[0];
     const absPath = resolveSafePath(musicDir, relPath);
-    if (!absPath || !/\.mp3$/i.test(absPath)) {
+    const contentType = absPath ? STREAM_CONTENT_TYPES[path.extname(absPath).toLowerCase()] : null;
+    if (!absPath || !contentType) {
       return res.status(400).send('Invalid path');
     }
     fsSync.access(absPath, fsSync.constants.R_OK, (err) => {
@@ -37,7 +39,7 @@ function createApiRouter(library, musicDir) {
         return res.status(404).send('Not found');
       }
       res.sendFile(absPath, {
-        headers: { 'Content-Type': 'audio/mpeg' },
+        headers: { 'Content-Type': contentType },
       });
     });
   });

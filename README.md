@@ -1,6 +1,6 @@
 # justfplay
 
-A simple web-based MP3 player for your own music collection. Browse folders, see tags and cover art, search, and stream tracks straight from the browser — no accounts, no uploads.
+A simple web-based MP3/MP4 player for your own music and video collection. Browse folders, see tags and cover art, search, and stream tracks straight from the browser — no accounts, no uploads.
 
 ## Setup
 
@@ -22,14 +22,14 @@ A simple web-based MP3 player for your own music collection. Browse folders, see
 
 3. Open `http://<this-machine>:<HOST_PORT>` in a browser.
 
-Only `.mp3` files are picked up. Adding or removing files under `MUSIC_PATH` is detected automatically within a few minutes — no restart needed.
+Both `.mp3` and `.mp4` files are picked up, and can be freely mixed within the same folder; other formats (including `.m4a`) are ignored. Adding or removing files under `MUSIC_PATH` is detected automatically within a few minutes — no restart needed.
 
 ## Using it
 
 - Click a folder to open it; use the breadcrumbs at the top to go back up.
 - Click a track to play it. When it finishes, the next track in the same folder plays automatically.
 - Use the search box to find a track by title, artist, album, or filename across your whole library.
-- The player bar at the bottom has play/pause, seek, previous/next, and volume.
+- The player bar at the bottom has play/pause, seek, previous/next, and volume — it controls video tracks too, which play in a video area above the listing.
 - Reloading the page picks up where you left off (paused, ready to resume).
 
 Works on both desktop and mobile browsers.

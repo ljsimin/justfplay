@@ -7,10 +7,10 @@ function pickTrackNumber(common) {
   return null;
 }
 
-async function readTrackTags(absPath, filename) {
-  const fallbackTitle = filename.replace(/\.mp3$/i, '');
+async function readTrackTags(absPath, filename, kind) {
+  const fallbackTitle = filename.replace(/\.(mp3|mp4)$/i, '');
   try {
-    const metadata = await mm.parseFile(absPath, { skipCovers: false, duration: true });
+    const metadata = await mm.parseFile(absPath, { skipCovers: kind === 'video', duration: true });
     const common = metadata.common || {};
     return {
       title: common.title || fallbackTitle,
@@ -20,7 +20,7 @@ async function readTrackTags(absPath, filename) {
       duration: metadata.format && typeof metadata.format.duration === 'number'
         ? metadata.format.duration
         : null,
-      hasArt: Boolean(common.picture && common.picture.length),
+      hasArt: kind === 'video' ? false : Boolean(common.picture && common.picture.length),
     };
   } catch (err) {
     return {

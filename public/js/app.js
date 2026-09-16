@@ -14,6 +14,8 @@
     breadcrumbs: document.getElementById('breadcrumbs'),
     listing: document.getElementById('listing'),
     audio: document.getElementById('audio'),
+    video: document.getElementById('video'),
+    videoStage: document.getElementById('video-stage'),
     playerArt: document.getElementById('player-art'),
     playerTitle: document.getElementById('player-title'),
     playerSubtitle: document.getElementById('player-subtitle'),
@@ -31,8 +33,17 @@
   let currentFolderPath = '';
   let currentContext = []; // array of track objects currently playable in sequence
   let currentIndex = -1;
+  let currentKind = 'audio';
   let isSeeking = false;
   let pendingRestore = null;
+
+  function activeEl() {
+    return currentKind === 'video' ? els.video : els.audio;
+  }
+
+  function isActive(el) {
+    return el === activeEl();
+  }
 
   function encodeStreamPath(relPath) {
     return relPath
@@ -86,8 +97,8 @@
     const state = {
       path: track.path,
       folderPath: currentFolderPath,
-      position: els.audio.currentTime || 0,
-      volume: els.audio.volume,
+      position: activeEl().currentTime || 0,
+      volume: activeEl().volume,
       searchQuery: els.search.value || '',
     };
     try {
@@ -232,7 +243,7 @@
 
     const artHtml = track.hasArt
       ? '<img class="row-art" src="' + artUrl(track) + '" alt="" />'
-      : '<div class="row-icon">🎵</div>';
+      : '<div class="row-icon">' + (track.kind === 'video' ? '🎬' : '🎵') + '</div>';
 
     const subtitleParts = [];
     if (track.artist) subtitleParts.push(track.artist);
@@ -277,7 +288,17 @@
   }
 
   function loadTrack(track, startPosition, autoplay) {
-    els.audio.src = streamUrl(track);
+    const newKind = track.kind === 'video' ? 'video' : 'audio';
+    const outgoing = newKind === 'video' ? els.audio : els.video;
+    outgoing.pause();
+    outgoing.removeAttribute('src');
+    outgoing.load();
+
+    currentKind = newKind;
+    els.videoStage.classList.toggle('visible', newKind === 'video');
+
+    const el = activeEl();
+    el.src = streamUrl(track);
     els.playerTitle.textContent = track.title;
     const subtitleParts = [];
     if (track.artist) subtitleParts.push(track.artist);
@@ -287,17 +308,17 @@
 
     const applyPosition = () => {
       if (startPosition) {
-        els.audio.currentTime = startPosition;
+        el.currentTime = startPosition;
       }
-      els.audio.removeEventListener('loadedmetadata', applyPosition);
+      el.removeEventListener('loadedmetadata', applyPosition);
     };
-    els.audio.addEventListener('loadedmetadata', applyPosition);
+    el.addEventListener('loadedmetadata', applyPosition);
 
-    els.audio.load();
+    el.load();
     highlightPlayingRow();
 
     if (autoplay) {
-      els.audio.play().catch(() => {
+      el.play().catch(() => {
         /* playback blocked until user interacts; ignore */
       });
     }
@@ -311,7 +332,7 @@
 
   function prev() {
     if (currentIndex <= 0) {
-      els.audio.currentTime = 0;
+      activeEl().currentTime = 0;
       return;
     }
     currentIndex -= 1;
@@ -319,10 +340,10 @@
   }
 
   function togglePlay() {
-    if (els.audio.paused) {
-      els.audio.play().catch(() => {});
+    if (activeEl().paused) {
+      activeEl().play().catch(() => {});
     } else {
-      els.audio.pause();
+      activeEl().pause();
     }
   }
 
@@ -349,6 +370,7 @@
     currentIndex = context.findIndex((t) => t.path === track.path);
     if (typeof state.volume === 'number') {
       els.audio.volume = state.volume;
+      els.video.volume = state.volume;
       els.volume.value = String(state.volume);
     }
     loadTrack(track, state.position || 0, false);
@@ -366,37 +388,46 @@
     els.btnNext.addEventListener('click', next);
     els.btnPrev.addEventListener('click', prev);
 
-    els.audio.addEventListener('play', () => {
+    let saveTimer = null;
+
+    const handlePlay = (e) => {
+      if (!isActive(e.currentTarget)) return;
       els.btnPlay.textContent = '⏸';
-    });
-    els.audio.addEventListener('pause', () => {
+    };
+    const handlePause = (e) => {
+      if (!isActive(e.currentTarget)) return;
       els.btnPlay.textContent = '▶';
       saveState();
-    });
-    els.audio.addEventListener('ended', () => {
+    };
+    const handleEnded = (e) => {
+      if (!isActive(e.currentTarget)) return;
       saveState();
       next();
-    });
-
-    els.audio.addEventListener('loadedmetadata', () => {
-      els.seek.max = String(els.audio.duration || 0);
-      els.timeDuration.textContent = formatTime(els.audio.duration);
-    });
-
-    els.audio.addEventListener('timeupdate', () => {
+    };
+    const handleLoadedMetadata = (e) => {
+      if (!isActive(e.currentTarget)) return;
+      els.seek.max = String(e.currentTarget.duration || 0);
+      els.timeDuration.textContent = formatTime(e.currentTarget.duration);
+    };
+    const handleTimeUpdate = (e) => {
+      if (!isActive(e.currentTarget)) return;
       if (!isSeeking) {
-        els.seek.value = String(els.audio.currentTime);
+        els.seek.value = String(e.currentTarget.currentTime);
       }
-      els.timeCurrent.textContent = formatTime(els.audio.currentTime);
-    });
-
-    let saveTimer = null;
-    els.audio.addEventListener('timeupdate', () => {
+      els.timeCurrent.textContent = formatTime(e.currentTarget.currentTime);
       if (saveTimer) return;
       saveTimer = setTimeout(() => {
         saveTimer = null;
         saveState();
       }, 3000);
+    };
+
+    [els.audio, els.video].forEach((el) => {
+      el.addEventListener('play', handlePlay);
+      el.addEventListener('pause', handlePause);
+      el.addEventListener('ended', handleEnded);
+      el.addEventListener('loadedmetadata', handleLoadedMetadata);
+      el.addEventListener('timeupdate', handleTimeUpdate);
     });
 
     els.seek.addEventListener('input', () => {
@@ -404,12 +435,14 @@
       els.timeCurrent.textContent = formatTime(Number(els.seek.value));
     });
     els.seek.addEventListener('change', () => {
-      els.audio.currentTime = Number(els.seek.value);
+      activeEl().currentTime = Number(els.seek.value);
       isSeeking = false;
     });
 
     els.volume.addEventListener('input', () => {
-      els.audio.volume = Number(els.volume.value);
+      const value = Number(els.volume.value);
+      els.audio.volume = value;
+      els.video.volume = value;
     });
 
     els.playerArt.addEventListener('error', () => {
