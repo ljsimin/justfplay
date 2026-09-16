@@ -23,7 +23,7 @@ A simple web-based MP3/MP4/WebM player for your own music and video collection. 
 
 3. Open `http://<this-machine>:<HOST_PORT>` in a browser.
 
-`.mp3`, `.mp4`, and `.webm` files are picked up, and can be freely mixed within the same folder; other formats (including `.m4a`) are ignored. Adding or removing files under any configured music folder is detected automatically within a few minutes — no restart needed.
+`.mp3`, `.mp4`, and `.webm` files are picked up, and can be freely mixed within the same folder; other formats (including `.m4a`) are ignored. Adding or removing files under any configured music folder is detected automatically within a few minutes — no restart needed. If your music folder is a network mount (e.g. CIFS/SMB) and changes take longer than that to show up, it's usually the mount's own directory-attribute caching, not justfplay — you can force an immediate rescan without restarting the container by running `curl -X POST http://<this-machine>:<HOST_PORT>/rescan`.
 
 ## Using it
 

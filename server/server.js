@@ -31,6 +31,20 @@ async function main() {
 
   const app = express();
   app.use('/api', createApiRouter(library));
+
+  // Deliberately not part of /api and not linked from the UI — this is a
+  // manual maintenance hook (e.g. `curl -X POST` after adding files to a
+  // slow-to-invalidate network mount) rather than a user-facing feature.
+  app.post('/rescan', async (req, res) => {
+    try {
+      await library.rescan();
+      res.json({ ok: true, scannedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error('Manual rescan failed:', err);
+      res.status(500).json({ ok: false, error: 'Rescan failed' });
+    }
+  });
+
   app.get(['/', '/index.html'], (req, res) => {
     res.type('html').send(indexHtml);
   });
