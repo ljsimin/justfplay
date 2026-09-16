@@ -10,6 +10,28 @@ const VIDEO_EXT = /\.(mp4|webm)$/i;
 const MEDIA_EXT = /\.(mp3|mp4|webm)$/i;
 const IMAGE_EXT = /\.(jpe?g|png)$/i;
 const RESCAN_INTERVAL_MS = 5 * 60 * 1000;
+// How many entries in one directory to process at once. Bounded so a huge
+// library doesn't fire off thousands of simultaneous reads (rough on a slow
+// network mount), while still overlapping I/O wait instead of going fully
+// one-file-at-a-time.
+const SCAN_CONCURRENCY = 8;
+
+// Runs `worker` over `items` with at most `limit` calls in flight at once,
+// preserving each result at its original index.
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function runNext() {
+    for (;;) {
+      const i = nextIndex++;
+      if (i >= items.length) return;
+      results[i] = await worker(items[i], i);
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, items.length) }, runNext);
+  await Promise.all(workers);
+  return results;
+}
 
 function trackSortCompare(a, b) {
   if (a.trackNo != null && b.trackNo != null && a.trackNo !== b.trackNo) {
@@ -67,6 +89,7 @@ class Library {
     this.tree = null;
     this.pathIndex = new Map(); // logical relative path -> absolute file path
     this.folderCoverIndex = new Map(); // logical folder path -> absolute cover image path
+    this.tagCache = new Map(); // logical relative path -> { mtimeMs, tags }
     this.scanning = null;
   }
 
@@ -84,10 +107,11 @@ class Library {
       return this.scanning;
     }
     this.scanning = this._scanAll()
-      .then(({ tree, pathIndex, folderCoverIndex }) => {
+      .then(({ tree, pathIndex, folderCoverIndex, tagCache }) => {
         this.tree = tree;
         this.pathIndex = pathIndex;
         this.folderCoverIndex = folderCoverIndex;
+        this.tagCache = tagCache;
         return tree;
       })
       .finally(() => {
@@ -119,16 +143,19 @@ class Library {
   async _scanAll() {
     const pathIndex = new Map();
     const folderCoverIndex = new Map();
-    const ancestorRealPaths = new Set(); // guards against symlink cycles
+    const tagCache = new Map();
     const rootTrees = [];
     for (const rootDir of this.rootDirs) {
-      rootTrees.push(await this._scanDir(rootDir, '', '(root)', pathIndex, folderCoverIndex, ancestorRealPaths));
+      // Each root starts with its own empty ancestor set — a fresh Set is
+      // passed (not shared/mutated) at every level, so concurrent sibling
+      // directories can never falsely look like an ancestor of one another.
+      rootTrees.push(await this._scanDir(rootDir, '', '(root)', pathIndex, folderCoverIndex, new Set(), tagCache));
     }
     const tree = this._mergeFolderNodes(rootTrees, '(root)', '');
-    return { tree, pathIndex, folderCoverIndex };
+    return { tree, pathIndex, folderCoverIndex, tagCache };
   }
 
-  async _scanDir(absDir, relDir, name, pathIndex, folderCoverIndex, ancestorRealPaths) {
+  async _scanDir(absDir, relDir, name, pathIndex, folderCoverIndex, ancestorRealPaths, tagCache) {
     let realAbsDir;
     try {
       realAbsDir = await fs.realpath(absDir);
@@ -136,12 +163,12 @@ class Library {
       realAbsDir = absDir;
     }
     // A symlink cycle (or a symlink pointing back at an ancestor directory)
-    // would otherwise recurse forever — skip if we're already scanning this
-    // real directory further up the current branch.
+    // would otherwise recurse forever.
     if (ancestorRealPaths.has(realAbsDir)) {
       return { type: 'folder', name, path: relDir, folders: [], tracks: [] };
     }
-    ancestorRealPaths.add(realAbsDir);
+    const childAncestors = new Set(ancestorRealPaths);
+    childAncestors.add(realAbsDir);
 
     let entries;
     try {
@@ -149,56 +176,69 @@ class Library {
     } catch (err) {
       entries = [];
     }
+    entries = entries.filter((entry) => !entry.name.startsWith('.'));
 
-    const folders = [];
-    const tracks = [];
-    const imageNames = [];
-
-    for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue;
+    const results = await mapWithConcurrency(entries, SCAN_CONCURRENCY, async (entry) => {
       const entryAbs = path.join(absDir, entry.name);
       const entryRel = relDir ? `${relDir}/${entry.name}` : entry.name;
 
       let isDir = entry.isDirectory();
       let isFile = entry.isFile();
+      let entryStat = null;
       if (entry.isSymbolicLink()) {
         try {
-          const stat = await fs.stat(entryAbs); // follows the symlink, unlike lstat
-          isDir = stat.isDirectory();
-          isFile = stat.isFile();
+          entryStat = await fs.stat(entryAbs); // follows the symlink, unlike lstat
+          isDir = entryStat.isDirectory();
+          isFile = entryStat.isFile();
         } catch (err) {
-          continue; // broken symlink or inaccessible target
+          return null; // broken symlink or inaccessible target
         }
       }
 
       if (isDir) {
-        const sub = await this._scanDir(entryAbs, entryRel, entry.name, pathIndex, folderCoverIndex, ancestorRealPaths);
-        if (sub.folders.length || sub.tracks.length) {
-          folders.push(sub);
-        }
-      } else if (isFile && MEDIA_EXT.test(entry.name)) {
-        const kind = AUDIO_EXT.test(entry.name) ? 'audio' : 'video';
-        const tags = await readTrackTags(entryAbs, entry.name, kind);
+        const sub = await this._scanDir(entryAbs, entryRel, entry.name, pathIndex, folderCoverIndex, childAncestors, tagCache);
+        return sub.folders.length || sub.tracks.length ? { kind: 'folder', node: sub } : null;
+      }
+      if (isFile && MEDIA_EXT.test(entry.name)) {
         if (pathIndex.has(entryRel)) {
           console.warn(
             `Skipping duplicate library path "${entryRel}" — already provided by an earlier music directory.`
           );
-          continue;
+          return null;
         }
+        if (!entryStat) {
+          try {
+            entryStat = await fs.stat(entryAbs);
+          } catch (err) {
+            return null; // vanished between readdir and stat
+          }
+        }
+        const kind = AUDIO_EXT.test(entry.name) ? 'audio' : 'video';
+        const cached = this.tagCache.get(entryRel);
+        const tags =
+          cached && cached.mtimeMs === entryStat.mtimeMs ? cached.tags : await readTrackTags(entryAbs, entry.name, kind);
+        tagCache.set(entryRel, { mtimeMs: entryStat.mtimeMs, tags });
         pathIndex.set(entryRel, entryAbs);
-        tracks.push({
-          type: 'track',
-          name: entry.name,
-          path: entryRel,
-          ...tags,
-          kind,
-        });
-      } else if (isFile && IMAGE_EXT.test(entry.name)) {
-        imageNames.push(entry.name);
+        return {
+          kind: 'track',
+          node: { type: 'track', name: entry.name, path: entryRel, ...tags, kind },
+        };
       }
-    }
+      if (isFile && IMAGE_EXT.test(entry.name)) {
+        return { kind: 'image', name: entry.name };
+      }
+      return null;
+    });
 
-    ancestorRealPaths.delete(realAbsDir);
+    const folders = [];
+    const tracks = [];
+    const imageNames = [];
+    for (const result of results) {
+      if (!result) continue;
+      if (result.kind === 'folder') folders.push(result.node);
+      else if (result.kind === 'track') tracks.push(result.node);
+      else if (result.kind === 'image') imageNames.push(result.name);
+    }
 
     const coverName = await pickFolderCover(absDir, imageNames, name);
     if (coverName && !folderCoverIndex.has(relDir)) {
