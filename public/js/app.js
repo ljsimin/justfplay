@@ -557,13 +557,32 @@
 
   async function loadTree() {
     const res = await fetch('/api/tree');
+    if (!res.ok) {
+      throw new Error('Library tree not available (status ' + res.status + ')');
+    }
     tree = await res.json();
     flatTracks = collectAllTracks(tree, []);
   }
 
+  // The server starts accepting connections before its first library scan
+  // finishes, so /api/tree can 503 for a bit right after startup — poll
+  // until it's ready instead of treating that as a hard failure.
+  async function waitForTree(maxAttempts) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        await loadTree();
+        return;
+      } catch (err) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+    throw new Error('Library did not become ready in time');
+  }
+
   async function init() {
     wireEvents();
-    await loadTree();
+    els.listing.innerHTML = '<div class="empty-state">Loading library…</div>';
+    await waitForTree(30);
 
     const state = loadState();
     render();

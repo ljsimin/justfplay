@@ -30,7 +30,6 @@ function escapeHtml(str) {
 
 async function main() {
   const library = new Library(MUSIC_DIRS);
-  await library.init();
 
   const indexTemplate = await fs.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   const indexHtml = indexTemplate.replace(/{{SITE_TITLE}}/g, escapeHtml(SITE_TITLE));
@@ -58,6 +57,13 @@ async function main() {
   app.listen(PORT, () => {
     const authNote = AUTH_USER && AUTH_PASS ? ', HTTP Basic Auth enabled' : '';
     console.log(`justfplay listening on port ${PORT}, serving music from ${MUSIC_DIRS.join(', ')}${authNote}`);
+  });
+
+  // Scanning can take a while (large library, slow/network mount); the
+  // server starts accepting connections immediately instead of blocking on
+  // it, and /api/tree reports 503 until the first scan completes.
+  library.init().catch((err) => {
+    console.error('Initial library scan failed:', err);
   });
 }
 
