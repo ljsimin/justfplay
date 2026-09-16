@@ -5,7 +5,10 @@ services:
       - "${HOST_PORT:-3000}:3000"
     volumes:
       - ${MUSIC_PATH:-./music}:/music:ro
+      - ${MUSIC_PATH_2:-./music2}:/music2:ro
+      - ${MUSIC_PATH_3:-./music3}:/music3:ro
+      - ${MUSIC_PATH_4:-./music4}:/music4:ro
     environment:
-      - MUSIC_DIR=/music
+      - MUSIC_DIR=/music,/music2,/music3,/music4
       - SITE_TITLE=${SITE_TITLE:-justfplay}
     restart: unless-stopped

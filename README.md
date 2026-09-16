@@ -11,6 +11,7 @@ A simple web-based MP3/MP4/WebM player for your own music and video collection. 
    ```
 
    - `MUSIC_PATH` — path on this machine to your music folder (subfolders are supported)
+   - `MUSIC_PATH_2`, `MUSIC_PATH_3`, `MUSIC_PATH_4` — optional additional folders, e.g. music kept on a different drive. All configured folders are mixed together into one library as if they were a single root directory: same-named folders merge, and tracks from every folder show up side by side. Leave blank if you only have one folder; if you need more than four, add extra `volumes:`/`MUSIC_DIR` entries directly in `docker-compose.yml` following the existing pattern.
    - `HOST_PORT` — port to reach justfplay on (default `3000`)
    - `SITE_TITLE` — text shown as the page title (default `justfplay`)
 
@@ -22,7 +23,7 @@ A simple web-based MP3/MP4/WebM player for your own music and video collection. 
 
 3. Open `http://<this-machine>:<HOST_PORT>` in a browser.
 
-`.mp3`, `.mp4`, and `.webm` files are picked up, and can be freely mixed within the same folder; other formats (including `.m4a`) are ignored. Adding or removing files under `MUSIC_PATH` is detected automatically within a few minutes — no restart needed.
+`.mp3`, `.mp4`, and `.webm` files are picked up, and can be freely mixed within the same folder; other formats (including `.m4a`) are ignored. Adding or removing files under any configured music folder is detected automatically within a few minutes — no restart needed.
 
 ## Using it
 

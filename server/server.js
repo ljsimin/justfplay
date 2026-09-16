@@ -5,7 +5,12 @@ const { Library } = require('./lib/library');
 const { createApiRouter } = require('./routes/api');
 
 const PORT = process.env.PORT || 3000;
-const MUSIC_DIR = process.env.MUSIC_DIR || '/music';
+// Comma-separated list of directories to scan; all of them are merged into
+// one library, mixed together as if they were a single root directory.
+const MUSIC_DIRS = (process.env.MUSIC_DIR || '/music')
+  .split(',')
+  .map((dir) => dir.trim())
+  .filter(Boolean);
 const SITE_TITLE = process.env.SITE_TITLE || 'justfplay';
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -18,21 +23,21 @@ function escapeHtml(str) {
 }
 
 async function main() {
-  const library = new Library(MUSIC_DIR);
+  const library = new Library(MUSIC_DIRS);
   await library.init();
 
   const indexTemplate = await fs.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   const indexHtml = indexTemplate.replace(/{{SITE_TITLE}}/g, escapeHtml(SITE_TITLE));
 
   const app = express();
-  app.use('/api', createApiRouter(library, MUSIC_DIR));
+  app.use('/api', createApiRouter(library));
   app.get(['/', '/index.html'], (req, res) => {
     res.type('html').send(indexHtml);
   });
   app.use(express.static(PUBLIC_DIR, { index: false }));
 
   app.listen(PORT, () => {
-    console.log(`justfplay listening on port ${PORT}, serving music from ${MUSIC_DIR}`);
+    console.log(`justfplay listening on port ${PORT}, serving music from ${MUSIC_DIRS.join(', ')}`);
   });
 }
 
