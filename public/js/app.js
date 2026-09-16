@@ -16,7 +16,8 @@
     audio: document.getElementById('audio'),
     video: document.getElementById('video'),
     videoStage: document.getElementById('video-stage'),
-    btnToggleVideo: document.getElementById('btn-toggle-video'),
+    btnHideVideo: document.getElementById('btn-hide-video'),
+    btnShowVideo: document.getElementById('btn-show-video'),
     playerArt: document.getElementById('player-art'),
     playerTitle: document.getElementById('player-title'),
     playerSubtitle: document.getElementById('player-subtitle'),
@@ -48,16 +49,13 @@
     return el === activeEl();
   }
 
-  // The toggle button only appears while a video track is loaded; the video
-  // stage itself is additionally hidden if the user has chosen to hide it
-  // (e.g. to get the full listing back while audio-only-listening to a
-  // video's soundtrack) — playback continues either way.
+  // While a video track is loaded, the stage is either the full video (with
+  // a hide button in its corner) or, if the user chose to hide it, a slim
+  // bar with a button to bring it back — playback continues either way.
   function updateVideoStageVisibility() {
     const isVideo = currentKind === 'video';
     els.videoStage.classList.toggle('visible', isVideo && !videoHidden);
-    els.btnToggleVideo.classList.toggle('visible', isVideo);
-    els.btnToggleVideo.classList.toggle('video-hidden', videoHidden);
-    els.btnToggleVideo.title = videoHidden ? 'Show video' : 'Hide video';
+    els.videoStage.classList.toggle('minimized', isVideo && videoHidden);
   }
 
   function encodeStreamPath(relPath) {
@@ -520,8 +518,12 @@
       }
     });
 
-    els.btnToggleVideo.addEventListener('click', () => {
-      videoHidden = !videoHidden;
+    els.btnHideVideo.addEventListener('click', () => {
+      videoHidden = true;
+      updateVideoStageVisibility();
+    });
+    els.btnShowVideo.addEventListener('click', () => {
+      videoHidden = false;
       updateVideoStageVisibility();
     });
 

@@ -119,15 +119,30 @@ class Library {
   async _scanAll() {
     const pathIndex = new Map();
     const folderCoverIndex = new Map();
+    const ancestorRealPaths = new Set(); // guards against symlink cycles
     const rootTrees = [];
     for (const rootDir of this.rootDirs) {
-      rootTrees.push(await this._scanDir(rootDir, '', '(root)', pathIndex, folderCoverIndex));
+      rootTrees.push(await this._scanDir(rootDir, '', '(root)', pathIndex, folderCoverIndex, ancestorRealPaths));
     }
     const tree = this._mergeFolderNodes(rootTrees, '(root)', '');
     return { tree, pathIndex, folderCoverIndex };
   }
 
-  async _scanDir(absDir, relDir, name, pathIndex, folderCoverIndex) {
+  async _scanDir(absDir, relDir, name, pathIndex, folderCoverIndex, ancestorRealPaths) {
+    let realAbsDir;
+    try {
+      realAbsDir = await fs.realpath(absDir);
+    } catch (err) {
+      realAbsDir = absDir;
+    }
+    // A symlink cycle (or a symlink pointing back at an ancestor directory)
+    // would otherwise recurse forever — skip if we're already scanning this
+    // real directory further up the current branch.
+    if (ancestorRealPaths.has(realAbsDir)) {
+      return { type: 'folder', name, path: relDir, folders: [], tracks: [] };
+    }
+    ancestorRealPaths.add(realAbsDir);
+
     let entries;
     try {
       entries = await fs.readdir(absDir, { withFileTypes: true });
@@ -144,12 +159,24 @@ class Library {
       const entryAbs = path.join(absDir, entry.name);
       const entryRel = relDir ? `${relDir}/${entry.name}` : entry.name;
 
-      if (entry.isDirectory()) {
-        const sub = await this._scanDir(entryAbs, entryRel, entry.name, pathIndex, folderCoverIndex);
+      let isDir = entry.isDirectory();
+      let isFile = entry.isFile();
+      if (entry.isSymbolicLink()) {
+        try {
+          const stat = await fs.stat(entryAbs); // follows the symlink, unlike lstat
+          isDir = stat.isDirectory();
+          isFile = stat.isFile();
+        } catch (err) {
+          continue; // broken symlink or inaccessible target
+        }
+      }
+
+      if (isDir) {
+        const sub = await this._scanDir(entryAbs, entryRel, entry.name, pathIndex, folderCoverIndex, ancestorRealPaths);
         if (sub.folders.length || sub.tracks.length) {
           folders.push(sub);
         }
-      } else if (entry.isFile() && MEDIA_EXT.test(entry.name)) {
+      } else if (isFile && MEDIA_EXT.test(entry.name)) {
         const kind = AUDIO_EXT.test(entry.name) ? 'audio' : 'video';
         const tags = await readTrackTags(entryAbs, entry.name, kind);
         if (pathIndex.has(entryRel)) {
@@ -166,10 +193,12 @@ class Library {
           ...tags,
           kind,
         });
-      } else if (entry.isFile() && IMAGE_EXT.test(entry.name)) {
+      } else if (isFile && IMAGE_EXT.test(entry.name)) {
         imageNames.push(entry.name);
       }
     }
+
+    ancestorRealPaths.delete(realAbsDir);
 
     const coverName = await pickFolderCover(absDir, imageNames, name);
     if (coverName && !folderCoverIndex.has(relDir)) {
