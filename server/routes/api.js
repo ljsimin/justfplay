@@ -24,7 +24,7 @@ function createApiRouter(library) {
   router.get('/tree', (req, res) => {
     const tree = library.getTree();
     if (!tree) {
-      return res.status(503).json({ error: 'Library not ready yet' });
+      return res.status(503).json({ error: 'Library not ready yet', filesScanned: library.filesScanned });
     }
     res.json(tree);
   });

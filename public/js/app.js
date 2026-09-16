@@ -561,7 +561,16 @@
   async function loadTree() {
     const res = await fetch('/api/tree');
     if (!res.ok) {
-      throw new Error('Library tree not available (status ' + res.status + ')');
+      let filesScanned = null;
+      try {
+        const body = await res.json();
+        if (typeof body.filesScanned === 'number') filesScanned = body.filesScanned;
+      } catch (err) {
+        /* not-ready response wasn't parseable; ignore */
+      }
+      const notReadyError = new Error('Library tree not available (status ' + res.status + ')');
+      notReadyError.filesScanned = filesScanned;
+      throw notReadyError;
     }
     tree = await res.json();
     flatTracks = collectAllTracks(tree, []);
@@ -572,13 +581,14 @@
   // or network-mounted library can easily take longer than a short timeout
   // would allow, so this polls indefinitely (with backoff) rather than
   // giving up and forcing a manual reload once the scan does finish.
-  async function waitForTree() {
+  async function waitForTree(onProgress) {
     let delay = 1000;
     for (;;) {
       try {
         await loadTree();
         return;
       } catch (err) {
+        if (typeof err.filesScanned === 'number') onProgress(err.filesScanned);
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay = Math.min(delay + 1000, 5000);
       }
@@ -588,12 +598,10 @@
   async function init() {
     wireEvents();
     els.listing.innerHTML = '<div class="empty-state">Loading library…</div>';
-    const slowNotice = setTimeout(() => {
+    await waitForTree((filesScanned) => {
       els.listing.innerHTML =
-        '<div class="empty-state">Still loading — this can take a while for a large or network-mounted library…</div>';
-    }, 10000);
-    await waitForTree();
-    clearTimeout(slowNotice);
+        '<div class="empty-state">Loading library… (' + filesScanned + ' files scanned so far)</div>';
+    });
 
     const state = loadState();
     render();

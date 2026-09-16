@@ -91,6 +91,7 @@ class Library {
     this.folderCoverIndex = new Map(); // logical folder path -> absolute cover image path
     this.tagCache = new Map(); // logical relative path -> { mtimeMs, tags }
     this.scanning = null;
+    this.filesScanned = 0; // live counter for the scan currently in progress
   }
 
   async init() {
@@ -106,6 +107,7 @@ class Library {
     if (this.scanning) {
       return this.scanning;
     }
+    this.filesScanned = 0;
     this.scanning = this._scanAll()
       .then(({ tree, pathIndex, folderCoverIndex, tagCache }) => {
         this.tree = tree;
@@ -219,6 +221,7 @@ class Library {
           cached && cached.mtimeMs === entryStat.mtimeMs ? cached.tags : await readTrackTags(entryAbs, entry.name, kind);
         tagCache.set(entryRel, { mtimeMs: entryStat.mtimeMs, tags });
         pathIndex.set(entryRel, entryAbs);
+        this.filesScanned += 1;
         return {
           kind: 'track',
           node: { type: 'track', name: entry.name, path: entryRel, ...tags, kind },
