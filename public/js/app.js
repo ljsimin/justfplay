@@ -472,4 +472,10 @@
     console.error('Failed to initialize justfplay:', err);
     els.listing.innerHTML = '<div class="empty-state">Failed to load library.</div>';
   });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* installability is a nice-to-have; ignore registration failures */
+    });
+  }
 })();

@@ -34,3 +34,9 @@ A simple web-based MP3/MP4/WebM player for your own music and video collection. 
 - Reloading the page picks up where you left off (paused, ready to resume).
 
 Works on both desktop and mobile browsers.
+
+## Installing it
+
+justfplay is an installable web app. On Chrome/Edge (desktop or Android), look for an "Install"/"Add to Home Screen" option in the browser's menu or address bar; on iOS Safari, use Share → "Add to Home Screen". Installed, it opens full-screen in its own window/icon, no browser chrome.
+
+Note: Chrome/Edge only offer the install option over a secure context — `https://` or `localhost`. If you're reaching justfplay over plain `http://` at a LAN IP (the default setup above), install will work when browsing from the same machine (`http://localhost:<HOST_PORT>`) but not from other devices unless you put justfplay behind HTTPS (e.g. a reverse proxy). iOS Safari's "Add to Home Screen" isn't affected by this and works either way.

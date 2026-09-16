@@ -29,6 +29,10 @@ async function main() {
   const indexTemplate = await fs.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   const indexHtml = indexTemplate.replace(/{{SITE_TITLE}}/g, escapeHtml(SITE_TITLE));
 
+  const manifestTemplate = await fs.readFile(path.join(PUBLIC_DIR, 'manifest.webmanifest'), 'utf8');
+  const escapedTitleForJson = JSON.stringify(SITE_TITLE).slice(1, -1);
+  const manifestJson = manifestTemplate.replace(/{{SITE_TITLE}}/g, escapedTitleForJson);
+
   const app = express();
   app.use('/api', createApiRouter(library));
 
@@ -47,6 +51,9 @@ async function main() {
 
   app.get(['/', '/index.html'], (req, res) => {
     res.type('html').send(indexHtml);
+  });
+  app.get('/manifest.webmanifest', (req, res) => {
+    res.type('application/manifest+json').send(manifestJson);
   });
   app.use(express.static(PUBLIC_DIR, { index: false }));
 
