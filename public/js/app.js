@@ -565,24 +565,32 @@
   }
 
   // The server starts accepting connections before its first library scan
-  // finishes, so /api/tree can 503 for a bit right after startup — poll
-  // until it's ready instead of treating that as a hard failure.
-  async function waitForTree(maxAttempts) {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  // finishes, so /api/tree can 503 for a while right after startup — a slow
+  // or network-mounted library can easily take longer than a short timeout
+  // would allow, so this polls indefinitely (with backoff) rather than
+  // giving up and forcing a manual reload once the scan does finish.
+  async function waitForTree() {
+    let delay = 1000;
+    for (;;) {
       try {
         await loadTree();
         return;
       } catch (err) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay = Math.min(delay + 1000, 5000);
       }
     }
-    throw new Error('Library did not become ready in time');
   }
 
   async function init() {
     wireEvents();
     els.listing.innerHTML = '<div class="empty-state">Loading library…</div>';
-    await waitForTree(30);
+    const slowNotice = setTimeout(() => {
+      els.listing.innerHTML =
+        '<div class="empty-state">Still loading — this can take a while for a large or network-mounted library…</div>';
+    }, 10000);
+    await waitForTree();
+    clearTimeout(slowNotice);
 
     const state = loadState();
     render();
