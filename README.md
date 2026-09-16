@@ -1,6 +1,6 @@
 # justfplay
 
-A simple web-based MP3/MP4 player for your own music and video collection. Browse folders, see tags and cover art, search, and stream tracks straight from the browser — no accounts, no uploads.
+A simple web-based MP3/MP4/WebM player for your own music and video collection. Browse folders, see tags and cover art, search, and stream tracks straight from the browser — no accounts, no uploads.
 
 ## Setup
 
@@ -22,7 +22,7 @@ A simple web-based MP3/MP4 player for your own music and video collection. Brows
 
 3. Open `http://<this-machine>:<HOST_PORT>` in a browser.
 
-Both `.mp3` and `.mp4` files are picked up, and can be freely mixed within the same folder; other formats (including `.m4a`) are ignored. Adding or removing files under `MUSIC_PATH` is detected automatically within a few minutes — no restart needed.
+`.mp3`, `.mp4`, and `.webm` files are picked up, and can be freely mixed within the same folder; other formats (including `.m4a`) are ignored. Adding or removing files under `MUSIC_PATH` is detected automatically within a few minutes — no restart needed.
 
 ## Using it
 

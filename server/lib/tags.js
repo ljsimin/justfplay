@@ -8,7 +8,7 @@ function pickTrackNumber(common) {
 }
 
 async function readTrackTags(absPath, filename, kind) {
-  const fallbackTitle = filename.replace(/\.(mp3|mp4)$/i, '');
+  const fallbackTitle = filename.replace(/\.(mp3|mp4|webm)$/i, '');
   try {
     const metadata = await mm.parseFile(absPath, { skipCovers: kind === 'video', duration: true });
     const common = metadata.common || {};

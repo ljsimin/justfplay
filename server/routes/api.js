@@ -4,7 +4,7 @@ const fsSync = require('fs');
 const { readCoverArt } = require('../lib/tags');
 
 const ART_CACHE_MAX = 200;
-const STREAM_CONTENT_TYPES = { '.mp3': 'audio/mpeg', '.mp4': 'video/mp4' };
+const STREAM_CONTENT_TYPES = { '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.webm': 'video/webm' };
 
 function resolveSafePath(rootDir, relPath) {
   const normalizedRoot = path.resolve(rootDir);

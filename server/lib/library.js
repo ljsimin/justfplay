@@ -3,10 +3,10 @@ const path = require('path');
 const { readTrackTags } = require('./tags');
 
 const AUDIO_EXT = /\.mp3$/i;
-const VIDEO_EXT = /\.mp4$/i;
+const VIDEO_EXT = /\.(mp4|webm)$/i;
 // .m4a (audio-only mp4 container) is intentionally excluded from scope for now —
 // it would need its own metadata-handling branch, not a casual extension add.
-const MEDIA_EXT = /\.(mp3|mp4)$/i;
+const MEDIA_EXT = /\.(mp3|mp4|webm)$/i;
 const RESCAN_INTERVAL_MS = 5 * 60 * 1000;
 
 class Library {
