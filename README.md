@@ -14,6 +14,7 @@ A simple web-based MP3/MP4/WebM player for your own music and video collection. 
    - `MUSIC_PATH_2`, `MUSIC_PATH_3`, `MUSIC_PATH_4` — optional additional folders, e.g. music kept on a different drive. All configured folders are mixed together into one library as if they were a single root directory: same-named folders merge, and tracks from every folder show up side by side. Leave blank if you only have one folder; if you need more than four, add extra `volumes:`/`MUSIC_DIR` entries directly in `docker-compose.yml` following the existing pattern.
    - `HOST_PORT` — port to reach justfplay on (default `3000`)
    - `SITE_TITLE` — text shown as the page title (default `justfplay`)
+   - `AUTH_USER`, `AUTH_PASS` — optional HTTP Basic Auth. Leave both blank to disable (the default). Only worth enabling if this instance is reached over TLS (see [Security](#security) below).
 
 2. Start it:
 
@@ -40,3 +41,9 @@ Works on both desktop and mobile browsers.
 justfplay is an installable web app. On Chrome/Edge (desktop or Android), look for an "Install"/"Add to Home Screen" option in the browser's menu or address bar; on iOS Safari, use Share → "Add to Home Screen". Installed, it opens full-screen in its own window/icon, no browser chrome.
 
 Note: Chrome/Edge only offer the install option over a secure context — `https://` or `localhost`. If you're reaching justfplay over plain `http://` at a LAN IP (the default setup above), install will work when browsing from the same machine (`http://localhost:<HOST_PORT>`) but not from other devices unless you put justfplay behind HTTPS (e.g. a reverse proxy). iOS Safari's "Add to Home Screen" isn't affected by this and works either way.
+
+## Security
+
+justfplay has no accounts and, by default, no authentication — anyone who can reach the port can browse and stream your library (and trigger `/rescan`). If you're exposing it beyond your own LAN, set `AUTH_USER`/`AUTH_PASS` in `.env` to require an HTTP Basic Auth login for every request.
+
+This is only real protection if the instance is reached over TLS (e.g. behind a reverse proxy like Caddy, nginx, or Traefik terminating HTTPS) — over plain HTTP, Basic Auth credentials travel unencrypted on every request, which defeats the point. It's also a single shared credential with no lockout on repeated failures, so it suits personal/family use rather than anything internet-facing at scale; pair it with rate-limiting at the reverse-proxy layer if it's reachable from the open internet.

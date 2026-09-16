@@ -11,4 +11,6 @@ services:
     environment:
       - MUSIC_DIR=/music,/music2,/music3,/music4
       - SITE_TITLE=${SITE_TITLE:-justfplay}
+      - AUTH_USER=${AUTH_USER:-}
+      - AUTH_PASS=${AUTH_PASS:-}
     restart: unless-stopped
