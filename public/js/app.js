@@ -22,6 +22,7 @@
     btnPlay: document.getElementById('btn-play'),
     btnPrev: document.getElementById('btn-prev'),
     btnNext: document.getElementById('btn-next'),
+    btnRescan: document.getElementById('btn-rescan'),
     seek: document.getElementById('seek'),
     timeCurrent: document.getElementById('time-current'),
     timeDuration: document.getElementById('time-duration'),
@@ -188,9 +189,11 @@
   }
 
   function navigateTo(relPath) {
+    if (!els.search.value && relPath === currentFolderPath) return;
     currentFolderPath = relPath;
     els.search.value = '';
     render();
+    history.pushState({ folderPath: relPath }, '');
   }
 
   function renderFolder(relPath) {
@@ -501,16 +504,43 @@
       }
     });
 
+    els.btnRescan.addEventListener('click', async () => {
+      if (els.btnRescan.classList.contains('spinning')) return;
+      els.btnRescan.classList.add('spinning');
+      try {
+        await fetch('/api/rescan', { method: 'POST' });
+        await loadTree();
+        render();
+      } catch (err) {
+        console.error('Rescan failed:', err);
+      } finally {
+        els.btnRescan.classList.remove('spinning');
+      }
+    });
+
     window.addEventListener('beforeunload', saveState);
+
+    // Makes the browser/Android back button step up one folder level
+    // (or out of a search) instead of leaving the app, since every folder
+    // navigation pushes a history entry in navigateTo().
+    window.addEventListener('popstate', (event) => {
+      currentFolderPath = (event.state && event.state.folderPath) || '';
+      els.search.value = '';
+      render();
+    });
   }
 
   // ---- Init ----
 
-  async function init() {
-    wireEvents();
+  async function loadTree() {
     const res = await fetch('/api/tree');
     tree = await res.json();
     flatTracks = collectAllTracks(tree, []);
+  }
+
+  async function init() {
+    wireEvents();
+    await loadTree();
 
     const state = loadState();
     render();
@@ -518,6 +548,11 @@
       restoreState(state);
       render();
     }
+
+    // Baseline entry for the current (already-existing) history entry, so
+    // the first back-button press has something to compare against instead
+    // of immediately leaving the app.
+    history.replaceState({ folderPath: currentFolderPath }, '');
   }
 
   init().catch((err) => {

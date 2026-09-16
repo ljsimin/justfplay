@@ -55,6 +55,38 @@ body {
   font-size: 0.95rem;
 }
 
+.icon-button {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.icon-button:hover {
+  background: var(--row-hover);
+  color: var(--text);
+}
+
+.icon-button.spinning {
+  animation: icon-spin 0.8s linear infinite;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+@keyframes icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .breadcrumbs {
   padding: 10px 16px;
   font-size: 0.9rem;

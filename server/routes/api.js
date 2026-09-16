@@ -18,6 +18,16 @@ function createApiRouter(library) {
     res.json(tree);
   });
 
+  router.post('/rescan', async (req, res) => {
+    try {
+      await library.rescan();
+      res.json({ ok: true, scannedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error('Manual rescan failed:', err);
+      res.status(500).json({ ok: false, error: 'Rescan failed' });
+    }
+  });
+
   router.get('/stream/*', (req, res) => {
     const relPath = req.params[0];
     const absPath = library.resolveAbsolutePath(relPath);
