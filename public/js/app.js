@@ -10,6 +10,7 @@
     );
 
   const els = {
+    siteTitle: document.getElementById('site-title'),
     search: document.getElementById('search'),
     breadcrumbs: document.getElementById('breadcrumbs'),
     listing: document.getElementById('listing'),
@@ -434,6 +435,8 @@
   // ---- Event wiring ----
 
   function wireEvents() {
+    els.siteTitle.addEventListener('click', () => navigateTo(''));
+
     els.search.addEventListener('input', () => render());
 
     els.btnPlay.addEventListener('click', togglePlay);
