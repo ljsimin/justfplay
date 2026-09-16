@@ -16,7 +16,7 @@
     audio: document.getElementById('audio'),
     video: document.getElementById('video'),
     videoStage: document.getElementById('video-stage'),
-    btnPip: document.getElementById('btn-pip'),
+    btnToggleVideo: document.getElementById('btn-toggle-video'),
     playerArt: document.getElementById('player-art'),
     playerTitle: document.getElementById('player-title'),
     playerSubtitle: document.getElementById('player-subtitle'),
@@ -36,6 +36,7 @@
   let currentContext = []; // array of track objects currently playable in sequence
   let currentIndex = -1;
   let currentKind = 'audio';
+  let videoHidden = false;
   let isSeeking = false;
   let pendingRestore = null;
 
@@ -45,6 +46,18 @@
 
   function isActive(el) {
     return el === activeEl();
+  }
+
+  // The toggle button only appears while a video track is loaded; the video
+  // stage itself is additionally hidden if the user has chosen to hide it
+  // (e.g. to get the full listing back while audio-only-listening to a
+  // video's soundtrack) — playback continues either way.
+  function updateVideoStageVisibility() {
+    const isVideo = currentKind === 'video';
+    els.videoStage.classList.toggle('visible', isVideo && !videoHidden);
+    els.btnToggleVideo.classList.toggle('visible', isVideo);
+    els.btnToggleVideo.classList.toggle('video-hidden', videoHidden);
+    els.btnToggleVideo.title = videoHidden ? 'Show video' : 'Hide video';
   }
 
   function encodeStreamPath(relPath) {
@@ -330,15 +343,12 @@
   function loadTrack(track, startPosition, autoplay) {
     const newKind = track.kind === 'video' ? 'video' : 'audio';
     const outgoing = newKind === 'video' ? els.audio : els.video;
-    if (outgoing === els.video && document.pictureInPictureElement === els.video) {
-      document.exitPictureInPicture().catch(() => {});
-    }
     outgoing.pause();
     outgoing.removeAttribute('src');
     outgoing.load();
 
     currentKind = newKind;
-    els.videoStage.classList.toggle('visible', newKind === 'video');
+    updateVideoStageVisibility();
 
     const el = activeEl();
     el.src = streamUrl(track);
@@ -510,27 +520,10 @@
       }
     });
 
-    if (document.pictureInPictureEnabled) {
-      els.btnPip.addEventListener('click', async () => {
-        try {
-          if (document.pictureInPictureElement) {
-            await document.exitPictureInPicture();
-          } else {
-            await els.video.requestPictureInPicture();
-          }
-        } catch (err) {
-          /* PiP unsupported/blocked for this video right now; ignore */
-        }
-      });
-      els.video.addEventListener('enterpictureinpicture', () => {
-        els.btnPip.title = 'Exit picture-in-picture';
-      });
-      els.video.addEventListener('leavepictureinpicture', () => {
-        els.btnPip.title = 'Minimize video (picture-in-picture)';
-      });
-    } else {
-      els.btnPip.style.display = 'none';
-    }
+    els.btnToggleVideo.addEventListener('click', () => {
+      videoHidden = !videoHidden;
+      updateVideoStageVisibility();
+    });
 
     els.btnRescan.addEventListener('click', async () => {
       if (els.btnRescan.classList.contains('spinning')) return;
