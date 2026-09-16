@@ -61,6 +61,40 @@
     return '/api/stream/' + encodeStreamPath(track.path);
   }
 
+  function updateMediaSessionMetadata(track) {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title || track.name,
+      artist: track.artist || '',
+      album: track.album || '',
+      artwork: track.hasArt ? [{ src: artUrl(track) }] : [],
+    });
+    navigator.mediaSession.playbackState = 'paused';
+  }
+
+  function setMediaSessionAction(action, handler) {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      navigator.mediaSession.setActionHandler(action, handler);
+    } catch (err) {
+      /* action not supported by this browser; ignore */
+    }
+  }
+
+  function updatePositionState(el) {
+    if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
+    if (!Number.isFinite(el.duration) || el.duration <= 0) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: el.duration,
+        playbackRate: el.playbackRate || 1,
+        position: Math.min(el.currentTime, el.duration),
+      });
+    } catch (err) {
+      /* stale/racing call against a track that just changed; ignore */
+    }
+  }
+
   function formatTime(seconds) {
     if (seconds == null || Number.isNaN(seconds) || !Number.isFinite(seconds)) return '0:00';
     const m = Math.floor(seconds / 60);
@@ -305,6 +339,7 @@
     if (track.album) subtitleParts.push(track.album);
     els.playerSubtitle.textContent = subtitleParts.join(' — ');
     els.playerArt.src = artUrl(track);
+    updateMediaSessionMetadata(track);
 
     const applyPosition = () => {
       if (startPosition) {
@@ -393,10 +428,12 @@
     const handlePlay = (e) => {
       if (!isActive(e.currentTarget)) return;
       els.btnPlay.textContent = '⏸';
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
     };
     const handlePause = (e) => {
       if (!isActive(e.currentTarget)) return;
       els.btnPlay.textContent = '▶';
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
       saveState();
     };
     const handleEnded = (e) => {
@@ -408,6 +445,7 @@
       if (!isActive(e.currentTarget)) return;
       els.seek.max = String(e.currentTarget.duration || 0);
       els.timeDuration.textContent = formatTime(e.currentTarget.duration);
+      updatePositionState(e.currentTarget);
     };
     const handleTimeUpdate = (e) => {
       if (!isActive(e.currentTarget)) return;
@@ -415,6 +453,7 @@
         els.seek.value = String(e.currentTarget.currentTime);
       }
       els.timeCurrent.textContent = formatTime(e.currentTarget.currentTime);
+      updatePositionState(e.currentTarget);
       if (saveTimer) return;
       saveTimer = setTimeout(() => {
         saveTimer = null;
@@ -447,6 +486,19 @@
 
     els.playerArt.addEventListener('error', () => {
       els.playerArt.src = PLACEHOLDER_ART;
+    });
+
+    setMediaSessionAction('play', () => activeEl().play().catch(() => {}));
+    setMediaSessionAction('pause', () => activeEl().pause());
+    setMediaSessionAction('previoustrack', prev);
+    setMediaSessionAction('nexttrack', next);
+    setMediaSessionAction('seekto', (details) => {
+      const el = activeEl();
+      if (details.fastSeek && el.fastSeek) {
+        el.fastSeek(details.seekTime);
+      } else {
+        el.currentTime = details.seekTime;
+      }
     });
 
     window.addEventListener('beforeunload', saveState);
