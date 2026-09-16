@@ -112,6 +112,7 @@ body {
 
 #video-stage {
   display: none;
+  position: relative;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -129,6 +130,19 @@ body {
   object-fit: contain;
   display: block;
   margin: 0 auto;
+}
+
+.video-pip-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+}
+
+.video-pip-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
 }
 
 .listing {

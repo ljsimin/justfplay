@@ -16,6 +16,7 @@
     audio: document.getElementById('audio'),
     video: document.getElementById('video'),
     videoStage: document.getElementById('video-stage'),
+    btnPip: document.getElementById('btn-pip'),
     playerArt: document.getElementById('player-art'),
     playerTitle: document.getElementById('player-title'),
     playerSubtitle: document.getElementById('player-subtitle'),
@@ -329,6 +330,9 @@
   function loadTrack(track, startPosition, autoplay) {
     const newKind = track.kind === 'video' ? 'video' : 'audio';
     const outgoing = newKind === 'video' ? els.audio : els.video;
+    if (outgoing === els.video && document.pictureInPictureElement === els.video) {
+      document.exitPictureInPicture().catch(() => {});
+    }
     outgoing.pause();
     outgoing.removeAttribute('src');
     outgoing.load();
@@ -505,6 +509,28 @@
         el.currentTime = details.seekTime;
       }
     });
+
+    if (document.pictureInPictureEnabled) {
+      els.btnPip.addEventListener('click', async () => {
+        try {
+          if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+          } else {
+            await els.video.requestPictureInPicture();
+          }
+        } catch (err) {
+          /* PiP unsupported/blocked for this video right now; ignore */
+        }
+      });
+      els.video.addEventListener('enterpictureinpicture', () => {
+        els.btnPip.title = 'Exit picture-in-picture';
+      });
+      els.video.addEventListener('leavepictureinpicture', () => {
+        els.btnPip.title = 'Minimize video (picture-in-picture)';
+      });
+    } else {
+      els.btnPip.style.display = 'none';
+    }
 
     els.btnRescan.addEventListener('click', async () => {
       if (els.btnRescan.classList.contains('spinning')) return;
