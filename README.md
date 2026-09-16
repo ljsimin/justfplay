@@ -11,7 +11,9 @@ A simple web-based MP3/MP4/WebM player for your own music and video collection. 
    ```
 
    - `MUSIC_PATH` — path on this machine to your music folder (subfolders are supported)
-   - `MUSIC_PATH_2`, `MUSIC_PATH_3`, `MUSIC_PATH_4` — optional additional folders, e.g. music kept on a different drive. All configured folders are mixed together into one library as if they were a single root directory: same-named folders merge, and tracks from every folder show up side by side. Leave blank if you only have one folder; if you need more than four, add extra `volumes:`/`MUSIC_DIR` entries directly in `docker-compose.yml` following the existing pattern.
+   - `MUSIC_PATH_2`, `MUSIC_PATH_3`, `MUSIC_PATH_4` — optional additional folders, e.g. music kept on a different drive. All configured folders are mixed together into one library as if they were a single root directory: same-named folders merge, and tracks from every folder show up side by side. Leave blank if you only have one folder.
+
+   Need more than four? Copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored, auto-merged by `docker compose up`) and add more `volumes:`/`MUSIC_DIR` entries there, following the example in that file — this keeps your customization out of the tracked `docker-compose.yml`, so `git pull` never conflicts with it.
    - `HOST_PORT` — port to reach justfplay on (default `3000`)
    - `SITE_TITLE` — text shown as the page title (default `justfplay`)
    - `AUTH_USER`, `AUTH_PASS` — optional HTTP Basic Auth. Leave both blank to disable (the default). Only worth enabling if this instance is reached over TLS (see [Security](#security) below).

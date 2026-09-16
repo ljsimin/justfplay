@@ -4,6 +4,10 @@ npm-debug.log*
 # User-specific deployment config (host paths, custom title, port)
 .env
 
+# Local Compose customizations (e.g. extra music-directory mounts beyond
+# the four built in) — auto-merged by `docker compose up`, never tracked.
+docker-compose.override.yml
+
 # User's music library (bind-mounted at runtime, not part of the repo)
 /music/*
 !/music/.gitkeep

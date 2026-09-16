@@ -1,0 +1,22 @@
+# Copy this file to docker-compose.override.yml to add local customizations
+# on top of docker-compose.yml — e.g. more than the four built-in music
+# directories — without editing the tracked compose file (and without
+# git ever seeing a conflict on it, since docker-compose.override.yml is
+# gitignored). `docker compose up` merges it in automatically.
+#
+# Example: a 5th (and 6th) music directory. Add a MUSIC_PATH_5/_6 entry to
+# your .env for the host paths, then mirror them here:
+#
+# services:
+#   app:
+#     volumes:
+#       - ${MUSIC_PATH_5:-./music5}:/music5:ro
+#       - ${MUSIC_PATH_6:-./music6}:/music6:ro
+#     environment:
+#       # Must list every mounted path, including the original four —
+#       # this replaces the base file's MUSIC_DIR rather than appending.
+#       - MUSIC_DIR=/music,/music2,/music3,/music4,/music5,/music6
+#
+# After editing, run `docker compose config` to print the fully merged
+# result (no containers started) and confirm MUSIC_DIR and volumes came
+# out the way you expect before running `docker compose up`.
