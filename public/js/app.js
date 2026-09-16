@@ -260,8 +260,12 @@
   function buildFolderRow(folder) {
     const row = document.createElement('div');
     row.className = 'row';
+    const coverTrack = folder.tracks.find((t) => t.hasArt);
+    const iconHtml = coverTrack
+      ? '<img class="row-art" src="' + artUrl(coverTrack) + '" alt="" />'
+      : '<div class="row-icon">📁</div>';
     row.innerHTML =
-      '<div class="row-icon">📁</div>' +
+      iconHtml +
       '<div class="row-meta">' +
       '<div class="row-title"></div>' +
       '<div class="row-subtitle">' +
@@ -278,9 +282,7 @@
     row.className = 'row';
     row.dataset.path = track.path;
 
-    const artHtml = track.hasArt
-      ? '<img class="row-art" src="' + artUrl(track) + '" alt="" />'
-      : '<div class="row-icon">' + (track.kind === 'video' ? '🎬' : '🎵') + '</div>';
+    const artHtml = '<div class="row-icon">' + (track.kind === 'video' ? '🎬' : '🎵') + '</div>';
 
     const subtitleParts = [];
     if (track.artist) subtitleParts.push(track.artist);
