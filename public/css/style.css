@@ -367,7 +367,13 @@ body {
   }
   .player-track,
   .player-seek {
+    flex: none;
+    min-width: 0;
     max-width: none;
+    width: 100%;
+  }
+  .player-controls {
+    justify-content: center;
   }
   .player-volume {
     display: none;
