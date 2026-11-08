@@ -75,6 +75,115 @@
     return '/api/stream/' + encodeStreamPath(track.path);
   }
 
+  // ---- Offline audio cache ----
+  // A track is copied into the Cache API the first time it starts playing
+  // (a second, plain download alongside the streamed one). The service
+  // worker serves cached tracks; this side owns the bookkeeping: an index of
+  // { path: { size, ts } } in localStorage (ts = last played) and eviction of
+  // the least recently played tracks once the total exceeds CACHE_LIMIT.
+  const AUDIO_CACHE = 'justfplay-audio-v1';
+  const CACHE_INDEX_KEY = 'justfplay.audiocache';
+  const CACHE_LIMIT = 512 * 1024 * 1024;
+  const cachingNow = new Set();
+  let cacheIndex = {};
+
+  function saveCacheIndex() {
+    try {
+      localStorage.setItem(CACHE_INDEX_KEY, JSON.stringify(cacheIndex));
+    } catch (err) {
+      /* ignore quota errors */
+    }
+  }
+
+  function absStreamUrl(track) {
+    return new URL(streamUrl(track), location.href).href;
+  }
+
+  function markCachedRows() {
+    els.listing.querySelectorAll('.row[data-path]').forEach((row) => {
+      row.classList.toggle('cached', Boolean(cacheIndex[row.dataset.path]));
+    });
+  }
+
+  function trackPathFromUrl(url) {
+    const prefix = '/api/stream/';
+    const p = new URL(url).pathname;
+    return decodeURIComponent(p.slice(p.indexOf(prefix) + prefix.length));
+  }
+
+  // Reconcile the index with what the browser actually still holds (it may
+  // have evicted the cache, or localStorage may have been cleared).
+  async function syncCacheIndex() {
+    if (!('caches' in window)) return;
+    try {
+      cacheIndex = JSON.parse(localStorage.getItem(CACHE_INDEX_KEY) || '{}') || {};
+    } catch (err) {
+      cacheIndex = {};
+    }
+    try {
+      const cache = await caches.open(AUDIO_CACHE);
+      const keys = await cache.keys();
+      const present = {};
+      for (const req of keys) {
+        const p = trackPathFromUrl(req.url);
+        present[p] = true;
+        if (!cacheIndex[p]) {
+          const res = await cache.match(req);
+          const size = Number(res && res.headers.get('Content-Length')) || 0;
+          cacheIndex[p] = { size, ts: 0 };
+        }
+      }
+      for (const p of Object.keys(cacheIndex)) {
+        if (!present[p]) delete cacheIndex[p];
+      }
+      saveCacheIndex();
+      markCachedRows();
+    } catch (err) {
+      /* cache unavailable; playback just stays online-only */
+    }
+  }
+
+  async function evictIfNeeded(keepPath) {
+    const cache = await caches.open(AUDIO_CACHE);
+    let total = Object.values(cacheIndex).reduce((sum, e) => sum + e.size, 0);
+    const oldestFirst = Object.keys(cacheIndex)
+      .filter((p) => p !== keepPath)
+      .sort((a, b) => cacheIndex[a].ts - cacheIndex[b].ts);
+    for (const p of oldestFirst) {
+      if (total <= CACHE_LIMIT) break;
+      total -= cacheIndex[p].size;
+      delete cacheIndex[p];
+      await cache.delete(new URL('/api/stream/' + encodeStreamPath(p), location.href).href);
+    }
+    saveCacheIndex();
+  }
+
+  async function cacheTrackOnPlay(track) {
+    if (!('caches' in window) || track.kind === 'video') return;
+    const known = cacheIndex[track.path];
+    if (known) {
+      known.ts = Date.now(); // played again: no longer the oldest
+      saveCacheIndex();
+      return;
+    }
+    if (cachingNow.has(track.path)) return;
+    cachingNow.add(track.path);
+    try {
+      const res = await fetch(streamUrl(track));
+      const size = Number(res.headers.get('Content-Length')) || 0;
+      if (res.status !== 200 || size > CACHE_LIMIT) return;
+      const cache = await caches.open(AUDIO_CACHE);
+      await cache.put(absStreamUrl(track), res);
+      cacheIndex[track.path] = { size, ts: Date.now() };
+      await evictIfNeeded(track.path);
+      markCachedRows();
+    } catch (err) {
+      /* offline, quota exceeded or aborted: skip caching this track */
+    } finally {
+      cachingNow.delete(track.path);
+    }
+  }
+
   function updateMediaSessionMetadata(track) {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -308,6 +417,7 @@
       '<div class="row-title"></div>' +
       '<div class="row-subtitle"></div>' +
       '</div>' +
+      '<span class="row-cached" title="Available offline">✓</span>' +
       '<div class="row-duration">' +
       formatTime(track.duration) +
       '</div>';
@@ -316,6 +426,7 @@
     row.querySelector('.row-subtitle').textContent = subtitleParts.join(' — ');
 
     row.addEventListener('click', () => playTrack(track, context));
+    if (cacheIndex[track.path]) row.classList.add('cached');
     if (pendingRestore && pendingRestore.path === track.path) {
       row.classList.add('playing');
     }
@@ -481,6 +592,13 @@
       }, 3000);
     };
 
+    // 'playing' (not 'play') so a track is only cached once audio is really
+    // flowing; fires again after seeks/buffering, cacheTrackOnPlay is idempotent.
+    els.audio.addEventListener('playing', () => {
+      const track = currentContext[currentIndex];
+      if (track) cacheTrackOnPlay(track);
+    });
+
     [els.audio, els.video].forEach((el) => {
       el.addEventListener('play', handlePlay);
       el.addEventListener('pause', handlePause);
@@ -597,6 +715,10 @@
 
   async function init() {
     wireEvents();
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+    await syncCacheIndex();
     els.listing.innerHTML = '<div class="empty-state">Loading library…</div>';
     await waitForTree((filesScanned) => {
       els.listing.innerHTML =

@@ -258,6 +258,18 @@ body {
   flex-shrink: 0;
 }
 
+.row-cached {
+  display: none;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.row.cached .row-cached {
+  display: inline;
+}
+
 .empty-state {
   padding: 40px 16px;
   text-align: center;
