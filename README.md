@@ -46,6 +46,15 @@ justfplay is an installable web app. On Chrome/Edge (desktop or Android), look f
 
 Note: Chrome/Edge only offer the install option over a secure context — `https://` or `localhost`. If you're reaching justfplay over plain `http://` at a LAN IP (the default setup above), install will work when browsing from the same machine (`http://localhost:<HOST_PORT>`) but not from other devices unless you put justfplay behind HTTPS (e.g. a reverse proxy). iOS Safari's "Add to Home Screen" isn't affected by this and works either way.
 
+## Offline playback
+
+Audio tracks you play are copied into the browser's local storage as they start playing, so they keep playing without a network connection. Cached tracks show a small ✓ in the listing. The library listing, cover art and the app itself are also kept, so you can open justfplay and browse offline; tracks that haven't been cached simply won't play until you're back online.
+
+- Only audio (`.mp3`) is cached, never video.
+- The cache is limited to 512 MB; when it is full, the least recently played tracks are dropped first.
+- Each track is downloaded a second time in the background when it starts playing, so expect some extra data use the first time you play something on a metered connection.
+- Like installing, this needs a secure context (`https://` or `localhost`) because it relies on a service worker, and the HTTPS certificate must be trusted by the browser.
+
 ## Security
 
 justfplay has no accounts and, by default, no authentication — anyone who can reach the port can browse and stream your library (and trigger a rescan). If you're exposing it beyond your own LAN, set `AUTH_USER`/`AUTH_PASS` in `.env` to require an HTTP Basic Auth login for every request.
