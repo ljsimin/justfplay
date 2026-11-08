@@ -1,6 +1,6 @@
 // Service worker: keeps justfplay installable and usable offline.
 //
-// - Audio streams (/api/stream/*) are served from the audio cache when the
+// - Audio/video streams (/api/stream/*) are served from the audio cache when the
 //   track is in it (with Range support, so seeking works), otherwise they go
 //   straight to the network. The page (app.js) decides what gets put in the
 //   audio cache and when to evict; the worker only reads it.

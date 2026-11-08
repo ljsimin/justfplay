@@ -75,7 +75,7 @@
     return '/api/stream/' + encodeStreamPath(track.path);
   }
 
-  // ---- Offline audio cache ----
+  // ---- Offline audio/video cache ----
   // A track is copied into the Cache API the first time it starts playing
   // (a second, plain download alongside the streamed one). The service
   // worker serves cached tracks; this side owns the bookkeeping: an index of
@@ -83,7 +83,7 @@
   // the least recently played tracks once the total exceeds CACHE_LIMIT.
   const AUDIO_CACHE = 'justfplay-audio-v1';
   const CACHE_INDEX_KEY = 'justfplay.audiocache';
-  const CACHE_LIMIT = 512 * 1024 * 1024;
+  const CACHE_LIMIT = 2 * 1024 * 1024 * 1024;
   const cachingNow = new Set();
   let cacheIndex = {};
 
@@ -159,7 +159,7 @@
   }
 
   async function cacheTrackOnPlay(track) {
-    if (!('caches' in window) || track.kind === 'video') return;
+    if (!('caches' in window)) return;
     const known = cacheIndex[track.path];
     if (known) {
       known.ts = Date.now(); // played again: no longer the oldest

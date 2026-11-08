@@ -48,10 +48,10 @@ Note: Chrome/Edge only offer the install option over a secure context — `https
 
 ## Offline playback
 
-Audio tracks you play are copied into the browser's local storage as they start playing, so they keep playing without a network connection. Cached tracks show a small ✓ in the listing. The library listing, cover art and the app itself are also kept, so you can open justfplay and browse offline; tracks that haven't been cached simply won't play until you're back online.
+Tracks you play are copied into the browser's local storage as they start playing, so they keep playing without a network connection. Cached tracks show a small ✓ in the listing. The library listing, cover art and the app itself are also kept, so you can open justfplay and browse offline; tracks that haven't been cached simply won't play until you're back online.
 
-- Only audio (`.mp3`) is cached, never video.
-- The cache is limited to 512 MB; when it is full, the least recently played tracks are dropped first.
+- Video tracks (`.mp4`, `.webm`) are cached the same way as audio.
+- The cache is limited to 2 GB; when it is full, the least recently played tracks are dropped first.
 - Each track is downloaded a second time in the background when it starts playing, so expect some extra data use the first time you play something on a metered connection.
 - Like installing, this needs a secure context (`https://` or `localhost`) because it relies on a service worker, and the HTTPS certificate must be trusted by the browser.
 
